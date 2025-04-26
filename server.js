@@ -2,18 +2,35 @@ require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const twilio = require('twilio');
 
 const app = express();
 
+// Middleware
 app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
+// Twilio Function endpoint 
+app.post('/twilio-payment-handler', (req, res) => {
+  const twiml = new twilio.twiml.VoiceResponse();
+  
+  twiml.say("We are saving your card for future monthly payments.");
+  twiml.pay({
+    paymentConnector: "Stripe_Connector_2",
+    tokenType: "payment-method",
+    postalCode: false,
+    action: "/start-payment-setup" 
+  });
 
+  res.type('text/xml');
+  res.send(twiml.toString());
+});
+
+// Payment processing endpoint
 app.post('/start-payment-setup', async (req, res) => {
   try {
-    const { PaymentToken, CallSid, Result } = req.body;
+    const { PaymentToken, Result } = req.body;
 
-    // Validate payment was successful
     if (Result !== 'success' || !PaymentToken) {
       throw new Error('Payment failed or token missing');
     }
@@ -41,29 +58,28 @@ app.post('/start-payment-setup', async (req, res) => {
 
     console.log('✅ Subscription created for customer:', customer.id);
 
-       // TwiML continues the Studio flow
-       res.set('Content-Type', 'text/xml');
-        res.send(`
-          <Response>
-            <Say>Thank you! Your payment was processed successfully.</Say>
-            <Redirect method="POST">https://webhooks.twilio.com/v1/Accounts/${process.env.TWILIO_ACCOUNT_SID}/Flows/${process.env.STUDIO_FLOW_SID}?FlowEvent=return</Redirect>
-          </Response>
-        `);
+    // TwiML continues the Studio flow
+    res.set('Content-Type', 'text/xml');
+    res.send(`
+      <Response>
+        <Say>Thank you! Your payment was processed successfully.</Say>
+        <Redirect method="POST">https://webhooks.twilio.com/v1/Accounts/${process.env.TWILIO_ACCOUNT_SID}/Flows/${process.env.STUDIO_FLOW_SID}?FlowEvent=return</Redirect>
+      </Response>
+    `);
 
-   
-     } catch (err) {
-       console.error('Payment processing error:', err);
-       res.set('Content-Type', 'text/xml');
-       res.send(`
-         <Response>
-           <Say>We encountered an error processing your payment. Please try again later.</Say>
-           <Hangup/>
-         </Response>
-       `);
-     }
+  } catch (err) {
+    console.error('Payment processing error:', err);
+    res.set('Content-Type', 'text/xml');
+    res.send(`
+      <Response>
+        <Say>We encountered an error processing your payment. Please try again later.</Say>
+        <Hangup/>
+      </Response>
+    `);
+  }
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`✅ Server running and listening on port ${PORT}`);
+  console.log(`✅ Server running on port ${PORT}`);
 });
