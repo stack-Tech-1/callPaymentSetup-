@@ -2,7 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const bodyParser = require('body-parser');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-const Twilio = require('twilio'); // Changed variable name
+const Twilio = require('twilio'); 
 
 const app = express();
 
@@ -29,7 +29,7 @@ app.post('/twilio-payment-handler', (req, res) => {
       paymentConnector: "Stripe_Connector_2",
       tokenType: "payment-method",
       postalCode: false,
-      action: "https://yourdomain.com/start-payment-setup" // MUST be absolute URL
+      action: "https://callpaymentsetup.onrender.com/start-payment-setup" 
     });
 
     res.type('text/xml');
@@ -43,7 +43,7 @@ app.post('/twilio-payment-handler', (req, res) => {
 // Payment processing endpoint
 app.post('/start-payment-setup', async (req, res) => {
   try {
-    console.log('Payment webhook received:', req.body); // Debug logging
+    console.log('Payment webhook received:', req.body); 
     
     const { PaymentToken, Result } = req.body;
     if (Result !== 'success' || !PaymentToken) {
